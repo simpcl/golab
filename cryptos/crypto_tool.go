@@ -67,11 +67,6 @@ func (ct *CryptoTool) Encrypt(data []byte) ([]byte, error) {
 	if ct.opMode == OpMode_ECB {
 		blockMode = util.NewECBEncrypter(block)
 	} else if ct.opMode == OpMode_CBC {
-		//if ct.cipher == Cipher_AES {
-		//	blockMode = cipher.NewCBCEncrypter(block, []byte("0000000000000000"))
-		//} else {
-		//	blockMode = cipher.NewCBCEncrypter(block, bytes.Repeat([]byte("0"), block.BlockSize()))
-		//}
 		blockMode = cipher.NewCBCEncrypter(block, bytes.Repeat([]byte("0"), block.BlockSize()))
 	} else {
 		return nil, errors.New("Not supported operation mode")
@@ -102,11 +97,6 @@ func (ct *CryptoTool) Decrypt(encrytpedData []byte) ([]byte, error) {
 	if ct.opMode == OpMode_ECB {
 		blockMode = util.NewECBDecrypter(block)
 	} else if ct.opMode == OpMode_CBC {
-		//if ct.cipher == Cipher_AES {
-		//	blockMode = cipher.NewCBCDecrypter(block, []byte("0000000000000000"))
-		//} else {
-		//	blockMode = cipher.NewCBCDecrypter(block, bytes.Repeat([]byte("0"), block.BlockSize()))
-		//}
 		blockMode = cipher.NewCBCDecrypter(block, bytes.Repeat([]byte("0"), block.BlockSize()))
 	} else {
 		return nil, errors.New("Not supported operation mode")
