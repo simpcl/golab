@@ -9,7 +9,7 @@ func TestRequestString(t *testing.T) {
 	if err != nil {
 		t.Errorf("error: %v\n", err)
 	}
-	t.Logf("Request String: %s\n", s)
+	t.Logf("Request String Length: %d\n", len(s))
 }
 
 func TestDownloadFile(t *testing.T) {
