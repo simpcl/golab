@@ -1,28 +1,24 @@
 package executor
 
 type Runner interface {
-	run() interface{}
-}
-
-type HashRunner interface {
-	Runner
-	getHashCode() int32
+	Run() interface{}
+	GetKey() string
 }
 
 type Task struct {
+	Runner
 	resCh  chan interface{}
-	runner Runner
-}
-
-type HashTask struct {
-	resCh      chan interface{}
-	hashRunner HashRunner
+	future *Future
 }
 
 func NewTask(r Runner) *Task {
-	return &Task{resCh: make(chan interface{}, 1), runner: r}
+	return &Task{Runner: r, resCh: make(chan interface{}, 1), future: nil}
 }
 
-func NewHashTask(hr HashRunner) *HashTask {
-	return &HashTask{resCh: make(chan interface{}, 1), hashRunner: hr}
+func (t *Task) GetFuture() *Future {
+	if t.future != nil {
+		return t.future
+	}
+
+	return newFuture(t.resCh)
 }
