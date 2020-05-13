@@ -34,25 +34,25 @@ func newProcesserCtx(maxCount int) *ProcesserCtx {
 	return &ProcesserCtx{maxCount: maxCount, processingCount: 0, taskCh: make(chan *Task, maxCount)}
 }
 
-func (c *ProcesserCtx) submit(task *Task) int {
-	if c.processingCount >= c.maxCount {
+func (pc *ProcesserCtx) submit(task *Task) int {
+	if pc.processingCount >= pc.maxCount {
 		return -1
 	}
-	c.taskCh <- task
-	c.processingCount += 1
+	pc.taskCh <- task
+	pc.processingCount += 1
 
-	return c.maxCount - c.processingCount
+	return pc.maxCount - pc.processingCount
 }
 
-func (c *ProcesserCtx) finish() int {
-	if c.processingCount <= 0 {
-		c.processingCount = 0
+func (pc *ProcesserCtx) finish() int {
+	if pc.processingCount <= 0 {
+		pc.processingCount = 0
 		return 0
 	}
-	c.processingCount -= 1
-	return c.processingCount
+	pc.processingCount -= 1
+	return pc.processingCount
 }
 
-func (c *ProcesserCtx) getTaskChannel() chan *Task {
-	return c.taskCh
+func (pc *ProcesserCtx) getTaskChannel() chan *Task {
+	return pc.taskCh
 }

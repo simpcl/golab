@@ -7,6 +7,7 @@ import (
 )
 
 const (
+	MaxSelectCases         = 1024
 	DispatcherCount        = 4
 	WorkerCount            = 8
 	MaxDispatcherTaskCount = 128
@@ -50,10 +51,13 @@ func (w *Worker) getResultChannel() interface{} {
 
 type Dispatcher struct {
 	ProcesserCtx
-	consumer       *Consumer
-	maxWorkerCount int
-	freeWorkers    *list.List
-	busyWorkers    map[string]*Worker
+	consumer         *Consumer
+	isTaskChSelected bool
+	selectedCases    [MaxSelectCases]reflect.SelectCase
+	maxWorkerCount   int
+	freeWorkers      *list.List
+	busyWorkers      map[string]*Worker
+	pendingTasks     *list.List
 }
 
 func newDispatcher(workerCount int) *Dispatcher {
@@ -81,9 +85,11 @@ func (d *Dispatcher) process() {
 	for {
 	Loop:
 		cases := d.updateSelectCases()
-		chose, value, _ := reflect.Select(cases)
-		switch chose {
-		case 0:
+		chose, value, ok := reflect.Select(cases)
+		if ok != true {
+			continue
+		}
+		if d.isTaskChSelected == true && chose == 0 {
 			task := value.Interface().(*Task)
 			key := task.GetKey()
 			if worker, found := d.busyWorkers[key]; found {
@@ -96,7 +102,7 @@ func (d *Dispatcher) process() {
 				worker.submit(task)
 				goto Loop
 			}
-		default:
+		} else {
 			key := value.Interface().(string)
 			if worker, found := d.busyWorkers[key]; found {
 				refCount := worker.finish()
@@ -109,23 +115,25 @@ func (d *Dispatcher) process() {
 	}
 }
 
-func (d *Dispatcher) updateSelectCases() (cases []reflect.SelectCase) {
-	var sc reflect.SelectCase
+func (d *Dispatcher) updateSelectCases() []reflect.SelectCase {
+	var i = 0
+	d.isTaskChSelected = false
 	if d.freeWorkers.Len() > 0 {
-		sc = reflect.SelectCase{
+		d.selectedCases[i] = reflect.SelectCase{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(d.taskCh),
 		}
-		cases = append(cases, sc)
+		i += 1
+		d.isTaskChSelected = true
 	}
 	for _, consumer := range d.busyWorkers {
-		sc = reflect.SelectCase{
+		d.selectedCases[i] = reflect.SelectCase{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(consumer.keyCh),
 		}
-		cases = append(cases, sc)
+		i += 1
 	}
-	return
+	return d.selectedCases[:i]
 }
 
 type ConsistencyExecutor struct {
