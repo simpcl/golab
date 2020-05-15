@@ -30,7 +30,7 @@ func (ktr *KeyTaskRunner) GetKey() string {
 }
 
 func TestConsistencyExecutor(t *testing.T) {
-	ce := NewConsistencyExecutor()
+	ce := NewConsistencyExecutor(4)
 	fmt.Println(ce)
 	fs := []*Future{}
 
@@ -50,7 +50,7 @@ func TestConsistencyExecutor(t *testing.T) {
 }
 
 func TestConsistencyExecutor2(t *testing.T) {
-	ce := NewConsistencyExecutor()
+	ce := NewConsistencyExecutor(8)
 	fmt.Println(ce)
 
 	var wg sync.WaitGroup

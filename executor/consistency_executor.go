@@ -3,6 +3,7 @@ package executor
 import (
 	"container/list"
 	"hash/crc32"
+	"log"
 	"reflect"
 )
 
@@ -165,13 +166,18 @@ func (d *Dispatcher) updateSelectCases() []reflect.SelectCase {
 }
 
 type ConsistencyExecutor struct {
-	ds [DispatcherCount]*Dispatcher
+	ds    []*Dispatcher
+	dsNum int
 }
 
-func NewConsistencyExecutor() *ConsistencyExecutor {
-	ce := &ConsistencyExecutor{}
-	for i := 0; i < len(ce.ds); i += 1 {
-		ce.ds[i] = newDispatcher(WorkerCount)
+func NewConsistencyExecutor(dsNum int) *ConsistencyExecutor {
+	if dsNum <= 0 {
+		log.Fatal("Number of Dispatchers should be > 0")
+	}
+	ce := &ConsistencyExecutor{dsNum: dsNum}
+	ce.ds = []*Dispatcher{}
+	for i := 0; i < dsNum; i += 1 {
+		ce.ds = append(ce.ds, newDispatcher(WorkerCount))
 	}
 	return ce
 }
