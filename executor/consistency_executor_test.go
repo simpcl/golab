@@ -3,6 +3,7 @@ package executor
 import (
 	"fmt"
 	"math/rand"
+	"sync"
 	"testing"
 	"time"
 )
@@ -18,9 +19,9 @@ func newKeyTaskRunner(v int) *KeyTaskRunner {
 
 func (ktr *KeyTaskRunner) Run() interface{} {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
-	n := int(r.Intn(5))
+	n := int(r.Intn(2))
 	time.Sleep(time.Duration(n) * time.Millisecond)
-	fmt.Printf("running %s %d\n", ktr.name, ktr.value)
+	//fmt.Printf("running %s %d\n", ktr.name, ktr.value)
 	return ktr.value
 }
 
@@ -33,7 +34,7 @@ func TestConsistencyExecutor(t *testing.T) {
 	fmt.Println(ce)
 	fs := []*Future{}
 
-	for i := 0; i < 30; i += 1 {
+	for i := 0; i < 80; i += 1 {
 		ktr := newKeyTaskRunner(i)
 		future := ce.Submit(ktr)
 		fs = append(fs, future)
@@ -46,4 +47,21 @@ func TestConsistencyExecutor(t *testing.T) {
 			fmt.Printf("value %d\n", res.(int))
 		}
 	}
+}
+
+func TestConsistencyExecutor2(t *testing.T) {
+	ce := NewConsistencyExecutor()
+	fmt.Println(ce)
+
+	var wg sync.WaitGroup
+	for i := 0; i < 100; i += 1 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			ktr := newKeyTaskRunner(i)
+			future := ce.Submit(ktr)
+			future.GetResult()
+		}()
+	}
+	wg.Wait()
 }

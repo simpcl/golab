@@ -8,10 +8,10 @@ import (
 
 const (
 	MaxSelectCases         = 1024
-	DispatcherCount        = 4
+	DispatcherCount        = 8
 	WorkerCount            = 8
 	MaxDispatcherTaskCount = 128
-	MaxWorkerTaskCount     = 16
+	MaxWorkerTaskCount     = 1
 )
 
 type Worker struct {
@@ -70,7 +70,9 @@ func newDispatcher(workerCount int) *Dispatcher {
 
 	bw := make(map[string]*Worker)
 
-	dispatcher := &Dispatcher{ProcesserCtx: *pc, maxWorkerCount: workerCount, freeWorkers: fw, busyWorkers: bw}
+	tasks := list.New()
+
+	dispatcher := &Dispatcher{ProcesserCtx: *pc, maxWorkerCount: workerCount, freeWorkers: fw, busyWorkers: bw, pendingTasks: tasks}
 
 	dispatcher.consumer = newConsumer(dispatcher)
 
@@ -81,35 +83,60 @@ func (d *Dispatcher) getResultChannel() interface{} {
 	return nil
 }
 
+func (d *Dispatcher) submitToWorker(task *Task) bool {
+	key := task.GetKey()
+	if _, found := d.busyWorkers[key]; found {
+		return false
+	}
+
+	if e := d.freeWorkers.Front(); e != nil {
+		worker := d.freeWorkers.Remove(e).(*Worker)
+		d.busyWorkers[key] = worker
+		worker.submit(task)
+		return true
+	}
+
+	return false
+}
+
+func (d *Dispatcher) drainPendingTasks() int {
+	if d.freeWorkers.Len() == 0 {
+		return d.pendingTasks.Len()
+	}
+
+	for e := d.pendingTasks.Front(); e != nil; {
+		task := e.Value.(*Task)
+		if d.submitToWorker(task) != true {
+			return d.pendingTasks.Len()
+		}
+		d.pendingTasks.Remove(e)
+	}
+
+	return d.pendingTasks.Len()
+}
+
 func (d *Dispatcher) process() {
 	for {
 	Loop:
+		d.drainPendingTasks()
 		cases := d.updateSelectCases()
 		chose, value, ok := reflect.Select(cases)
 		if ok != true {
 			continue
 		}
 		if d.isTaskChSelected == true && chose == 0 {
+			d.addCount(1)
 			task := value.Interface().(*Task)
-			key := task.GetKey()
-			if worker, found := d.busyWorkers[key]; found {
-				worker.submit(task)
-				goto Loop
-			}
-			if e := d.freeWorkers.Front(); e != nil {
-				worker := d.freeWorkers.Remove(e).(*Worker)
-				d.busyWorkers[key] = worker
-				worker.submit(task)
+			if d.submitToWorker(task) == false {
+				d.pendingTasks.PushBack(task)
 				goto Loop
 			}
 		} else {
+			d.removeCount(1)
 			key := value.Interface().(string)
 			if worker, found := d.busyWorkers[key]; found {
-				refCount := worker.finish()
-				if refCount <= 0 {
-					delete(d.busyWorkers, key)
-					d.freeWorkers.PushBack(worker)
-				}
+				delete(d.busyWorkers, key)
+				d.freeWorkers.PushBack(worker)
 			}
 		}
 	}
@@ -118,7 +145,8 @@ func (d *Dispatcher) process() {
 func (d *Dispatcher) updateSelectCases() []reflect.SelectCase {
 	var i = 0
 	d.isTaskChSelected = false
-	if d.freeWorkers.Len() > 0 {
+	//log.Printf("updateSelectCases, freeWorkers: %d, pendingTasks: %d\n", d.freeWorkers.Len(), d.pendingTasks.Len())
+	if /*d.freeWorkers.Len() > 0 &&*/ d.isFull() != true {
 		d.selectedCases[i] = reflect.SelectCase{
 			Dir:  reflect.SelectRecv,
 			Chan: reflect.ValueOf(d.taskCh),
@@ -153,6 +181,6 @@ func (ce *ConsistencyExecutor) Submit(r Runner) *Future {
 	future := task.GetFuture()
 	key := []byte(r.GetKey())
 	index := int(crc32.ChecksumIEEE(key)) % len(ce.ds)
-	ce.ds[index].getTaskChannel() <- task
+	ce.ds[index].submit(task)
 	return future
 }

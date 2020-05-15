@@ -3,7 +3,7 @@ package executor
 import "sync"
 
 type Processer interface {
-	submit(task *Task) int
+	submit(task *Task)
 	process()
 	getTaskChannel() chan *Task
 	getResultChannel() interface{}
@@ -34,23 +34,22 @@ func newProcesserCtx(maxCount int) *ProcesserCtx {
 	return &ProcesserCtx{maxCount: maxCount, processingCount: 0, taskCh: make(chan *Task, maxCount)}
 }
 
-func (pc *ProcesserCtx) submit(task *Task) int {
-	if pc.processingCount >= pc.maxCount {
-		return -1
-	}
+func (pc *ProcesserCtx) submit(task *Task) {
 	pc.taskCh <- task
-	pc.processingCount += 1
-
-	return pc.maxCount - pc.processingCount
 }
 
-func (pc *ProcesserCtx) finish() int {
-	if pc.processingCount <= 0 {
-		pc.processingCount = 0
-		return 0
-	}
-	pc.processingCount -= 1
+func (pc *ProcesserCtx) addCount(n int) int {
+	pc.processingCount += n
 	return pc.processingCount
+}
+
+func (pc *ProcesserCtx) removeCount(n int) int {
+	pc.processingCount -= n
+	return pc.processingCount
+}
+
+func (pc *ProcesserCtx) isFull() bool {
+	return pc.processingCount >= pc.maxCount
 }
 
 func (pc *ProcesserCtx) getTaskChannel() chan *Task {
