@@ -1,0 +1,20 @@
+syntax = "proto3";
+option go_package = "peer/pb";
+
+package pb;
+
+// The service definition.
+service Heartbeat {
+    // Sends a greeting
+    rpc UpHeartbeat (HeartbeatRequest) returns (HeartbeatReply) {}
+}
+
+// The request message
+message HeartbeatRequest {
+    string who = 1;
+}
+
+// The response message
+message HeartbeatReply {
+    string msg = 1;
+}
